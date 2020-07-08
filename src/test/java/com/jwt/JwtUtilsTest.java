@@ -1,5 +1,6 @@
 package com.jwt;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -19,6 +20,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jwt.JwtSample.JwtUtils;
 import com.jwt.JwtSample.KeyContract;
 
@@ -30,9 +32,12 @@ import org.springframework.test.context.junit4.SpringRunner;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.impl.TextCodec;
 
 @RunWith(SpringRunner.class)
 public class JwtUtilsTest {
+
+	private static final String JWT_SEPARATOR = "\\.";
 
 	@Test
 	public void generateAndValidateTokenTest1() {
@@ -45,7 +50,7 @@ public class JwtUtilsTest {
 			assertNotNull(jwt);
 			assertNotEquals("", jwt);
 
-			Jws<Claims> jws = JwtUtils.isTokenValid(jwt, keyPair);
+			Jws<Claims> jws = JwtUtils.validateToken(jwt, keyPair);
 
 			assertNotNull(jws);
 			assertNotNull(jws.getHeader());
@@ -87,7 +92,7 @@ public class JwtUtilsTest {
 			final Map<String, Object> keyMap = new HashMap<>();
 			keyMap.put(KeyContract.PUBLIC_KEY, pubKey);
 
-			Jws<Claims> jws = JwtUtils.isTokenValid(jwt, keyMap);
+			Jws<Claims> jws = JwtUtils.validateToken(jwt, keyMap);
 			assertNotNull(jws);
 
 		} catch (InvalidKeySpecException | NoSuchAlgorithmException e) {
@@ -108,7 +113,7 @@ public class JwtUtilsTest {
 			final Map<String, Object> keyMap = new HashMap<>();
 			keyMap.put(KeyContract.PUBLIC_KEY, pubKey);
 
-			Jws<Claims> jws = JwtUtils.isTokenValid(jwt, keyMap);
+			Jws<Claims> jws = JwtUtils.validateToken(jwt, keyMap);
 			assertNull(jws);
 
 		} catch (InvalidKeySpecException | NoSuchAlgorithmException e) {
@@ -129,7 +134,7 @@ public class JwtUtilsTest {
 			final Map<String, Object> keyMap = new HashMap<>();
 			keyMap.put(KeyContract.PUBLIC_KEY, pubKey);
 
-			Jws<Claims> jws = JwtUtils.isTokenValid(jwt, keyMap);
+			Jws<Claims> jws = JwtUtils.validateToken(jwt, keyMap);
 			assertNull(jws);
 
 		} catch (InvalidKeySpecException | NoSuchAlgorithmException e) {
@@ -176,6 +181,37 @@ public class JwtUtilsTest {
 		assertNotNull(keys);
 		assertNotNull(keys.get(KeyContract.PRIVATE_KEY));
 		assertNotNull(keys.get(KeyContract.PUBLIC_KEY));
+	}
+
+	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+	@Test
+	public void validateParcialToken() {
+		try {
+			final Map<String, Object> header = loadJwtHeader();
+			final JSONObject jsonPayload = loadJwtPayload();
+			Map<String, Object> keyPair = loadTestKeys();
+			String encodedPayload = TextCodec.BASE64URL.encode(jsonPayload.toString());
+			
+			byte[] headerBytes = OBJECT_MAPPER.writeValueAsBytes(header);
+			String encodedHeader = TextCodec.BASE64URL.encode(headerBytes);
+
+			final String jwt = JwtUtils.createJWT(header, jsonPayload.toString(), keyPair);
+			
+			String[] parts = jwt.split(JWT_SEPARATOR);
+			assertEquals(parts[0], encodedHeader);
+			assertEquals(parts[1], encodedPayload);
+
+			Jws<Claims> jws = JwtUtils.validateToken(encodedHeader + "." + encodedPayload + "." + parts[2], keyPair);
+
+			assertNotNull(jws);
+			assertNotNull(jws.getHeader());
+			assertNotNull(jws.getBody());
+
+		} catch (InvalidKeySpecException | IOException | URISyntaxException | JSONException
+				| NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
 	}
 
 }

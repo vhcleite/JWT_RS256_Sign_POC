@@ -21,7 +21,7 @@ public class JwtUtils {
 		return builder.compact();
 	}
 
-	public static Jws<Claims> isTokenValid(String token, Map<String, Object> keyPair) {
+	public static Jws<Claims> validateToken(String token, Map<String, Object> keyPair) {
 		Jws<Claims> jws = null;
 		try {
 			 jws = Jwts.parser().setSigningKey((PublicKey)keyPair.get(KeyContract.PUBLIC_KEY)).parseClaimsJws(token);
